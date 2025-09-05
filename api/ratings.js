@@ -2,20 +2,17 @@
 
 import { kv } from '@vercel/kv';
 
-// Cấu hình CORS để cho phép trang web của bạn gọi API này
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // Hoặc thay '*' bằng domain của bạn để an toàn hơn
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
 export default async function handler(request) {
-    // Trả về headers cho các request OPTIONS (trình duyệt gửi để kiểm tra CORS)
     if (request.method === 'OPTIONS') {
         return new Response(null, { headers: corsHeaders });
     }
 
-    // --- XỬ LÝ KHI NGƯỜI DÙNG TẢI TRANG (GET) ---
     if (request.method === 'GET') {
         try {
             const allRatings = await kv.lrange('ratings', 0, -1);
@@ -28,9 +25,10 @@ export default async function handler(request) {
                 });
             }
 
-            const sum = allRatings.reduce((a, b) => a + b, 0);
-            const average = sum / allRatings.length;
+            // ⭐ SỬA LỖI: Chuyển đổi các giá trị sang dạng SỐ trước khi tính tổng
+            const sum = allRatings.map(Number).reduce((acc, current) => acc + current, 0);
             const count = allRatings.length;
+            const average = sum / count;
 
             const data = { average, count };
             return new Response(JSON.stringify(data), {
@@ -47,16 +45,14 @@ export default async function handler(request) {
         }
     }
 
-    // --- XỬ LÝ KHI NGƯỜI DÙNG GỬI ĐÁNH GIÁ (POST) ---
     if (request.method === 'POST') {
         try {
             const { rating } = await request.json();
 
-            // Kiểm tra dữ liệu đầu vào
             if (typeof rating !== 'number' || rating < 1 || rating > 5) {
                 return new Response(JSON.stringify({ message: 'Đánh giá không hợp lệ' }), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                    status: 400, // Bad Request
+                    status: 400,
                 });
             }
 
@@ -64,7 +60,7 @@ export default async function handler(request) {
 
             return new Response(JSON.stringify({ message: 'Đánh giá đã được ghi nhận' }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 201, // Created
+                status: 201,
             });
 
         } catch (error) {
@@ -76,6 +72,5 @@ export default async function handler(request) {
         }
     }
 
-    // Nếu không phải GET hoặc POST
     return new Response('Phương thức không được hỗ trợ', { status: 405 });
 }
