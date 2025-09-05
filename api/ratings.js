@@ -1,71 +1,52 @@
-// File: api/ratings.js (Phiên bản dùng Supabase)
-import { createClient } from '@supabase/supabase-js';
+// File: api/ratings.js (Phiên bản cho Render/Express)
+const { createClient } = require('@supabase/supabase-js');
 
-// Kết nối tới Supabase bằng biến môi trường
+// Bạn sẽ cần thêm biến môi trường vào Render.com
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
-export default async function handler(request) {
-    if (request.method === 'GET') {
+async function handler(req, res) { // Đổi thành req, res
+    if (req.method === 'GET') {
         try {
-            // Lấy tất cả dữ liệu từ bảng 'ratings'
             const { data, error } = await supabase.from('ratings').select('score');
             if (error) throw error;
 
             if (!data || data.length === 0) {
-                return new Response(JSON.stringify({ average: 0, count: 0 }), {
-                    headers: { 'Content-Type': 'application/json' },
-                    status: 200,
-                });
+                return res.status(200).json({ average: 0, count: 0 });
             }
-
+            
             const allScores = data.map(item => item.score);
             const sum = allScores.reduce((acc, current) => acc + current, 0);
             const count = allScores.length;
             const average = sum / count;
 
-            return new Response(JSON.stringify({ average, count }), {
-                headers: { 'Content-Type': 'application/json' },
-                status: 200,
-            });
+            return res.status(200).json({ average, count });
 
         } catch (error) {
             console.error("Supabase GET Error:", error);
-            return new Response(JSON.stringify({ message: 'Lỗi từ server' }), {
-                headers: { 'Content-Type': 'application/json' },
-                status: 500,
-            });
+            return res.status(500).json({ message: 'Lỗi từ server' });
         }
     }
 
-    if (request.method === 'POST') {
+    if (req.method === 'POST') {
         try {
-            const { rating } = await request.json();
+            const { rating } = req.body; // Đổi thành req.body
 
             if (typeof rating !== 'number' || rating < 1 || rating > 5) {
-                return new Response(JSON.stringify({ message: 'Đánh giá không hợp lệ' }), {
-                    headers: { 'Content-Type': 'application/json' },
-                    status: 400,
-                });
+                return res.status(400).json({ message: 'Đánh giá không hợp lệ' });
             }
 
-            // Chèn một hàng mới vào bảng 'ratings'
             const { error } = await supabase.from('ratings').insert({ score: rating });
             if (error) throw error;
 
-            return new Response(JSON.stringify({ message: 'Đánh giá đã được ghi nhận' }), {
-                headers: { 'Content-Type': 'application/json' },
-                status: 201,
-            });
+            return res.status(201).json({ message: 'Đánh giá đã được ghi nhận' });
 
         } catch (error) {
             console.error("Supabase POST Error:", error);
-            return new Response(JSON.stringify({ message: 'Lỗi từ server' }), {
-                headers: { 'Content-Type': 'application/json' },
-                status: 500,
-            });
+            return res.status(500).json({ message: 'Lỗi từ server' });
         }
     }
 
-    return new Response('Phương thức không được hỗ trợ', { status: 405 });
+    return res.status(405).send('Phương thức không được hỗ trợ');
 }
-//thu nghiem
+
+module.exports = { default: handler };
