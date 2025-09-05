@@ -1,33 +1,35 @@
-// File: api/ratings.js (Phiên bản đã dọn dẹp)
+// File: api/ratings.js (Phiên bản dùng Supabase)
+import { createClient } from '@supabase/supabase-js';
 
-import { kv } from '@vercel/kv';
+// Kết nối tới Supabase bằng biến môi trường
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 export default async function handler(request) {
-    // --- XỬ LÝ KHI NGƯỜI DÙNG TẢI TRANG (GET) ---
     if (request.method === 'GET') {
         try {
-            const allRatings = await kv.lrange('ratings', 0, -1);
-            
-            if (!allRatings || allRatings.length === 0) {
-                const data = { average: 0, count: 0 };
-                return new Response(JSON.stringify(data), {
+            // Lấy tất cả dữ liệu từ bảng 'ratings'
+            const { data, error } = await supabase.from('ratings').select('score');
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                return new Response(JSON.stringify({ average: 0, count: 0 }), {
                     headers: { 'Content-Type': 'application/json' },
                     status: 200,
                 });
             }
 
-            const sum = allRatings.map(Number).reduce((acc, current) => acc + current, 0);
-            const count = allRatings.length;
+            const allScores = data.map(item => item.score);
+            const sum = allScores.reduce((acc, current) => acc + current, 0);
+            const count = allScores.length;
             const average = sum / count;
 
-            const data = { average, count };
-            return new Response(JSON.stringify(data), {
+            return new Response(JSON.stringify({ average, count }), {
                 headers: { 'Content-Type': 'application/json' },
                 status: 200,
             });
 
         } catch (error) {
-            console.error(error);
+            console.error("Supabase GET Error:", error);
             return new Response(JSON.stringify({ message: 'Lỗi từ server' }), {
                 headers: { 'Content-Type': 'application/json' },
                 status: 500,
@@ -35,7 +37,6 @@ export default async function handler(request) {
         }
     }
 
-    // --- XỬ LÝ KHI NGƯỜI DÙNG GỬI ĐÁNH GIÁ (POST) ---
     if (request.method === 'POST') {
         try {
             const { rating } = await request.json();
@@ -47,7 +48,9 @@ export default async function handler(request) {
                 });
             }
 
-            await kv.lpush('ratings', rating);
+            // Chèn một hàng mới vào bảng 'ratings'
+            const { error } = await supabase.from('ratings').insert({ score: rating });
+            if (error) throw error;
 
             return new Response(JSON.stringify({ message: 'Đánh giá đã được ghi nhận' }), {
                 headers: { 'Content-Type': 'application/json' },
@@ -55,7 +58,7 @@ export default async function handler(request) {
             });
 
         } catch (error) {
-            console.error(error);
+            console.error("Supabase POST Error:", error);
             return new Response(JSON.stringify({ message: 'Lỗi từ server' }), {
                 headers: { 'Content-Type': 'application/json' },
                 status: 500,
@@ -65,4 +68,3 @@ export default async function handler(request) {
 
     return new Response('Phương thức không được hỗ trợ', { status: 405 });
 }
-//123
