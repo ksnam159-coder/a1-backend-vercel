@@ -1,4 +1,7 @@
 {
   "name": "a1-backend-vercel",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "dependencies": {
+    "@vercel/kv": "^3.0.0"
+  }
 }
