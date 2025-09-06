@@ -1,35 +1,39 @@
 import { kv } from "@vercel/kv";
 
 export default async function handler(req, res) {
-  // --- BẮT ĐẦU PHẦN CẤU HÌNH CORS ---
-  // Thiết lập header để cho phép các trang web khác gọi vào API này
-  // Thay '*' bằng địa chỉ web chính thức của bạn khi deploy để an toàn hơn
+  // --- PHẦN CẤU HÌNH CORS (Giữ nguyên) ---
   res.setHeader('Access-Control-Allow-Origin', '*'); 
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  // Vercel yêu cầu phải xử lý riêng request OPTIONS cho CORS
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-  // --- KẾT THÚC PHẦN CẤU HÌNH CORS ---
 
+  // --- BẮT ĐẦU PHẦN LOGIC MỚI ---
 
-  // XỬ LÝ KHI NGƯỜI DÙNG LẤY ĐÁNH GIÁ TRUNG BÌNH (GET)
+  // XỬ LÝ KHI LẤY ĐÁNH GIÁ TRUNG BÌNH (GET)
   if (req.method === 'GET') {
     try {
-      const keys = ['rating:1', 'rating:2', 'rating:3', 'rating:4', 'rating:5'];
-      // Lấy giá trị của nhiều key cùng một lúc
+      // Lấy category từ query URL (ví dụ: ?category=A1)
+      const category = req.query.category || 'A1'; // Mặc định là A1 nếu không có
+
+      // Tạo ra các key riêng biệt dựa trên category
+      const keys = [
+        `${category}:rating:1`, 
+        `${category}:rating:2`, 
+        `${category}:rating:3`, 
+        `${category}:rating:4`, 
+        `${category}:rating:5`
+      ];
+      
       const counts = await kv.mget(...keys);
 
       let totalVotes = 0;
       let totalScore = 0;
-
-      // counts sẽ là một mảng [count1, count2, count3, count4, count5]
+      
       counts.forEach((count, index) => {
-        const voteCount = count || 0; // Nếu key không tồn tại, giá trị là null, ta coi là 0
+        const voteCount = count || 0;
         totalVotes += voteCount;
-        // index là 0, 1, 2, 3, 4 tương ứng với 1, 2, 3, 4, 5 sao
         totalScore += voteCount * (index + 1); 
       });
 
@@ -46,16 +50,18 @@ export default async function handler(req, res) {
     }
   }
 
-  // XỬ LÝ KHI NGƯỜI DÙNG GỬI ĐÁNH GIÁ MỚI (POST)
+  // XỬ LÝ KHI GỬI ĐÁNH GIÁ MỚI (POST)
   if (req.method === 'POST') {
     try {
-      const { rating } = req.body;
-      if (!rating || rating < 1 || rating > 5) {
-        return res.status(400).json({ error: 'Đánh giá không hợp lệ.' });
+      // Lấy cả rating và category từ body của request
+      const { rating, category } = req.body;
+
+      if (!rating || rating < 1 || rating > 5 || !category) {
+        return res.status(400).json({ error: 'Đánh giá hoặc category không hợp lệ.' });
       }
 
-      // Tăng số lượt đếm cho đánh giá tương ứng (ví dụ: 'rating:5')
-      const key = `rating:${rating}`;
+      // Tạo key riêng biệt để tăng giá trị
+      const key = `${category}:rating:${rating}`;
       await kv.incr(key);
 
       return res.status(200).json({ success: true });
@@ -66,6 +72,5 @@ export default async function handler(req, res) {
     }
   }
 
-  // Nếu không phải GET, POST, OPTIONS thì báo lỗi
   return res.status(405).json({ error: 'Phương thức không được hỗ trợ.' });
 }
