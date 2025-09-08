@@ -1,24 +1,19 @@
-// File: /api/questions.js
+// File: /api/questions.js (đã được sửa đổi)
 
 import path from 'path';
 import { promises as fs } from 'fs';
 
 // Hàm xáo trộn mảng
 function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
+    // ... (Không thay đổi)
 }
 
 // Hàm lấy ngẫu nhiên 'n' phần tử từ một mảng
 function getRandomItems(arr, n) {
-    return shuffleArray([...arr]).slice(0, n);
+    // ... (Không thay đổi)
 }
 
 export default async function handler(request, response) {
-    // Headers cho phép VPS của bạn gọi API
     response.setHeader('Access-Control-Allow-Origin', '*');
     response.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -28,31 +23,28 @@ export default async function handler(request, response) {
         const fileContents = await fs.readFile(path.join(jsonDirectory, 'all_questions.json'), 'utf8');
         const allQuestions = JSON.parse(fileContents);
 
+        // Lọc bỏ đáp án trước khi trả về
+        const sanitizedQuestions = allQuestions.map(q => {
+            const { correctAnswer, ...rest } = q;
+            return rest;
+        });
+
         // Kiểm tra xem có yêu cầu lấy TẤT CẢ câu hỏi không
         const { all } = request.query;
         if (all === 'true') {
-            // Nếu có, trả về toàn bộ 250 câu
             response.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
-            return response.status(200).json(allQuestions);
+            return response.status(200).json(sanitizedQuestions);
         }
 
-        // Nếu không, tạo một bộ đề ngẫu nhiên theo cấu trúc
+        // Tạo một bộ đề ngẫu nhiên theo cấu trúc
         const categories = {
-            khai_niem_va_quy_tac: allQuestions.filter(q => q.category === 'khai_niem_va_quy_tac' && !q.isThrottlingQuestion),
-            diem_liet: allQuestions.filter(q => q.isThrottlingQuestion === true),
-            van_hoa_giao_thong: allQuestions.filter(q => q.category === 'van_hoa_giao_thong'),
-            ky_thuat_lai_xe: allQuestions.filter(q => q.category === 'ky_thuat_lai_xe'),
-            bien_bao: allQuestions.filter(q => q.category === 'bien_bao'),
-            sa_hinh: allQuestions.filter(q => q.category === 'sa_hinh')
+            khai_niem_va_quy_tac: sanitizedQuestions.filter(q => q.category === 'khai_niem_va_quy_tac' && !q.isThrottlingQuestion),
+            diem_liet: sanitizedQuestions.filter(q => q.isThrottlingQuestion === true),
+            // ... (các categories khác)
         };
         
         const finalTestSet = [
-            ...getRandomItems(categories.khai_niem_va_quy_tac, 8),
-            ...getRandomItems(categories.diem_liet, 1),
-            ...getRandomItems(categories.van_hoa_giao_thong, 1),
-            ...getRandomItems(categories.ky_thuat_lai_xe, 1),
-            ...getRandomItems(categories.bien_bao, 8),
-            ...getRandomItems(categories.sa_hinh, 6)
+            // ... (lấy các câu hỏi ngẫu nhiên từ categories)
         ];
 
         const finalShuffledTest = shuffleArray(finalTestSet);
